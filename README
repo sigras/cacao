@@ -2,7 +2,7 @@ This is a very simple framework for NodeJS.
 
 Example:
 
-
+```javascript
     var app = require('../cacao').cacao;
 
     var home = function(req, res) {
@@ -15,6 +15,6 @@ Example:
     }
 
     app.run_server(5000);
-
+```
 
 As you can see, it's very simple and lots of things are still missing for the framework, but it's was built just for learning purposes
