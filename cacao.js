@@ -1,76 +1,103 @@
 var http = require('http');
+var util = require('util');
 var fs = require('fs');
 var M = require('mustache');
+var _ = require('./underscore-min.js');
 
 var Cacao = {
-    dispatch_request: function(req, res) {
-        /* Matches the URL and returns the
-           return value of the view or error handler
-        */
+    run: function(port, host) {
+        var port = port || 5000;
+        var host = host || '127.0.0.1';
+        http.createServer(Cacao.handle_request).listen(port, host);
+        util.log('Running Cacao on ' + host + ':' + port);
+    },
+    handle_request: function(req, res) {
         var url = req.url;
-        controller = Cacao.routes[url];
-        if (controller) {
-            return this.Response(controller(req, res));
-        } else {
-            return this.Response('Page not found.');
-        }
-        
+        util.log(req.url + ' ' + req.method);
+
+        Cacao.__proto__.res = res;
+        Cacao.__proto__.req = req;
+
+        //if (typeof handler !== 'function') Cacao.handle_error('URL not found!');
+
+        var rv = router.loadUrl(url);
+
+        var handler = rv.handler.callback;
+        var params = rv.param;
+
+        handler(req, res, params);
+    },
+    handle_error: function(err) {
+        var html = "<html><body><p>" + err + "</p></body></html>";
+        Cacao.send_response(html)
     },
     render: function(file, context) {
-        var data = fs.readFileSync(file, 'utf8');
-        html = M.to_html(data, context);
-        return html
+        fs.readFile(file, 'utf8', function(err, data) {
+            if (err) throw err;
+            
+            var html_string = data.toString();
+            var html = M.to_html(html_string, context);
 
-        // This Doesn't work. Always returns 'undefined'.
-        // Not sure how to keep it asynchronous
-        // and make it work without changing structure 
-        // of framework.
-        /*
-        fs.readFile(file, function(err, data) {
-            if (err) {
-                return 'Error reading file';
-            } else {
-                var html_string = data.toString();
-                var html = M.to_html(html_string, context);
-                console.log('html: ' + html);
-                return html
-            }
-
-        })
-        */
+            Cacao.send_response(html);
+        });
     },
-    run_server: function(port) {
-        http.createServer(function(req, res) {
-            // TODO: log info about every req: date, user_agent etc...
-            view_func = Cacao.dispatch_request(req, res);
-
-            res.writeHead((view_func.status_code), {
-                'Content-Type': view_func.content_type
-            });
-
-            res.write(view_func.controller);
-            res.end();
-        }).listen(port);
-        console.log('Server running on port: ' + port);
-
+    send_response: function(body, status_code, content_type) {
+        Cacao.res.writeHead((status_code || 200), {'Content-Type': (content_type || 'text/html')});
+        Cacao.res.write(body);
+        Cacao.res.end();
+    },
+    sendJSON: function(json) {
+        var json = JSON.stringify(json);
+        Cacao.send_response(json, 200, 'application/json');
     }
 }
 
-Cacao.__proto__.Response = function(controller) {
-    var response_object = {
-        'controller': controller,
-        'status_code': 200,
-        'content_type': 'text/html'
-    }
-    if (controller === 'Page not found.') {
-        response_object.controller = 'Page not found';
-        response_object.status_code = 404;
-    }
-    return response_object;
+Cacao.Router = function() {
+    /* Router functionality taken from Backbone.js */
 
-    var is_JSON = function() {
-        // Check if return value is JSON
-        return;
+    var namedParam    = /:\w+/g;
+    var escapeRegExp  = /[-[\]{}()+?.,\\^$|#\s]/g;
+
+    var handlers = [];
+    var routes = [];
+
+    var add_routes = function(router) {
+        for (var route in router) {
+            routes.unshift([route, router[route]]);
+        }
+        for (var i = 0, l = routes.length; i < l; i++) {
+            var route = _routeToRegExp(routes[i][0]);
+            handlers.unshift({route: route, callback: routes[i][1]});
+        }
+    }
+
+    var _routeToRegExp = function(route) {
+        route = route.replace(escapeRegExp, '\\$&')
+                     .replace(namedParam, '([^\/]+)');
+        return new RegExp('^' + route + '$');
+    }
+
+    var _extractParameters = function(route, fragment) {
+        return route.exec(fragment).slice(1);
+    }
+
+    var loadUrl = function(url) {
+        var rv = {};
+        var fragment = url;
+        var matched = _.any(handlers, function(handler) {
+            if (handler.route.test(fragment)) {
+                var param = _extractParameters(handler.route, fragment);
+                rv.handler = handler;
+                rv.param = param
+                return true;
+            }
+        });
+        return rv;
+    }
+
+    return {
+        add_routes: add_routes,
+        loadUrl: loadUrl
     }
 }
 

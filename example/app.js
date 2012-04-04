@@ -1,12 +1,27 @@
 var app = require('../cacao').cacao;
 
-var home = function(req, res) {
-    var context = {'foo': 'bar'};
-    return app.render('index.html', context);
+var index = function(req, res) {
+    context = {'foo': 'universe'};
+    app.render('index.html', context);
 }
 
-app.routes = {
-    '/home': home,
+var profile = function(req, res, params) {
+    if (params) app.send_response(params[0]);
+
+    app.send_response('profile');
 }
 
-app.run_server(5000);
+var favicon = function(req, res) {
+    app.send_response('');
+}
+
+router = new app.Router();
+
+router.add_routes({
+    '/': index,
+    '/profile': profile,
+    '/profile/:user': profile,
+    '/favicon.ico': favicon
+})
+
+app.run(5000)
