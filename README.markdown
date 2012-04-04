@@ -1,22 +1,27 @@
-This is a very simple framework for NodeJS.
+A web framework I made to get familiar with NodeJS.
 
 Example:
 
 ```javascript
 var app = require('../cacao').cacao;
 
-var home = function(req, res) {
+var index = function(req, res) {
     var context = {'foo': 'bar'};
-    return app.render('index.html', context);
-  
+    app.render('index.html', context);  
 }
 
-app.routes = {
-    '/home': home,
-    
-}
+var profile = function(req, res, params) {
+    if (params) app.send_response(params[0]);
+    app.send_response('Profile');
 
-app.run_server(5000);
+var router = new app.Router();
+
+router.add_routes({
+    '/': index,
+    '/profile': profile,
+    '/profile/:username': profile,
+});
+
+app.run(5000);
 ```
 
-As you can see, it's very simple and lots of things are still missing, so it's obvious not to use this in a production environment.

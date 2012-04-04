@@ -15,7 +15,7 @@ var favicon = function(req, res) {
     app.send_response('');
 }
 
-router = new app.Router();
+var router = new app.Router();
 
 router.add_routes({
     '/': index,
